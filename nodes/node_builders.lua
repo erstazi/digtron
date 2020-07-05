@@ -41,7 +41,7 @@ if minetest.get_modpath("doc") then
 		"button_exit[7.0,0.5;1,0.1;help;" .. S("Help") .. "]" ..
 		"tooltip[help;" .. S("Show documentation about this block") .. "]"
 end
-	
+
 local builder_formspec = function(pos, meta)
 	local nodemeta = "nodemeta:"..pos.x .. "," .. pos.y .. "," ..pos.z
 	return builder_formspec_string
@@ -61,7 +61,7 @@ local builder_on_rightclick = function(pos, node, clicker, itemstack, pointed_th
 		end
 		return returnstack, success
 	end
-	local meta = minetest.get_meta(pos)	
+	local meta = minetest.get_meta(pos)
 	minetest.show_formspec(clicker:get_player_name(),
 		"digtron:builder"..minetest.pos_to_string(pos),
 		builder_formspec(pos, meta))
@@ -79,7 +79,7 @@ minetest.register_on_player_receive_fields(function(sender, formname, fields)
 	local offset = tonumber(fields.offset)
 	local build_facing = tonumber(fields.build_facing)
 	local extrusion = tonumber(fields.extrusion)
-	
+
 	if period and period > 0 then
 		meta:set_int("period", math.floor(tonumber(fields.period)))
 	else
@@ -90,7 +90,7 @@ minetest.register_on_player_receive_fields(function(sender, formname, fields)
 	else
 		offset = meta:get_int("offset")
 	end
-	if build_facing and build_facing >= 0 and build_facing < 24 then
+	if build_facing and build_facing >= 0 and build_facing < 256 then
 		local inv = meta:get_inventory()
 		local target_item = inv:get_stack("main",1)
 		if target_item:get_definition().paramtype2 == "wallmounted" then
@@ -107,7 +107,7 @@ minetest.register_on_player_receive_fields(function(sender, formname, fields)
 	else
 		extrusion = meta:get_int("extrusion")
 	end
-	
+
 	if fields.set then
 		digtron.show_offset_markers(pos, offset, period)
 
@@ -123,7 +123,7 @@ minetest.register_on_player_receive_fields(function(sender, formname, fields)
 			meta:set_int("build_facing", target_node.param2)
 		end
 	end
-	
+
 	if fields.help and minetest.get_modpath("doc") then --check for mod in case someone disabled it after this digger was built
 		minetest.after(0.5, doc.show_entry, sender:get_player_name(), "nodes", "digtron:builder", true)
 	end
@@ -151,7 +151,7 @@ minetest.register_node("digtron:builder", {
 		"digtron_plate.png^digtron_builder.png",
 		"digtron_plate.png",
 	},
-	
+
 	drawtype = "nodebox",
 	node_box = {
 		type = "fixed",
@@ -172,65 +172,65 @@ minetest.register_node("digtron:builder", {
 			{-0.3125, -0.0625, 0.3125, 0.3125, 0.0625, 0.375}, -- frontcross_horizontal
 		}
 	},
-	
+
 	on_construct = function(pos)
         local meta = minetest.get_meta(pos)
-		meta:set_int("period", 1) 
-		meta:set_int("offset", 0) 
+		meta:set_int("period", 1)
+		meta:set_int("offset", 0)
 		meta:set_int("build_facing", 0)
 		meta:set_int("extrusion", 1)
-				
+
 		local inv = meta:get_inventory()
 		inv:set_size("main", 1)
     end,
-	
+
 	on_rightclick = builder_on_rightclick,
-	
+
 	on_destruct = function(pos)
 		digtron.remove_builder_item(pos)
 	end,
-	
+
 	after_place_node = function(pos)
 		digtron.update_builder_item(pos)
 	end,
 
 	allow_metadata_inventory_put = function(pos, listname, index, stack, player)
 		local stack_name = stack:get_name()
-	
+
 		if minetest.get_item_group(stack_name, "digtron") ~= 0 then
 			return 0 -- don't allow builders to be set to build Digtron nodes, they'll just clog the output.
-		end	
-		
+		end
+
 		local stack_def = minetest.registered_nodes[stack_name]
 		if not stack_def and not digtron.whitelisted_on_place(stack_name) then
 			return 0 -- don't allow craft items unless their on_place is whitelisted.
 		end
-		
+
 		node_inventory_table.pos = pos
 		local inv = minetest.get_inventory(node_inventory_table)
 		inv:set_stack(listname, index, stack:take_item(1))
-		
+
 		-- If we're adding a wallmounted item and the build facing is greater than 5, reset it to 0
 		local meta = minetest.get_meta(pos)
 		if stack_def ~= nil and stack_def.paramtype2 == "wallmounted" and tonumber(meta:get_int("build_facing")) > 5 then
 			meta:set_int("build_facing", 0)
 		end
-		
+
 		return 0
 	end,
-	
+
 	allow_metadata_inventory_take = function(pos, listname, index, stack, player)
 		node_inventory_table.pos = pos
 		local inv = minetest.get_inventory(node_inventory_table)
 		inv:set_stack(listname, index, ItemStack(""))
 		return 0
 	end,
-	
+
 	-- "builder at pos, imagine that you're in test_pos. If you're willing and able to build from there, take the item you need from inventory.
 	-- return the item you took and the inventory location you took it from so it can be put back after all the other builders have been tested.
 	-- If you couldn't get the item from inventory, return an error code so we can abort the cycle.
 	-- If you're not supposed to build at all, or the location is obstructed, return 0 to let us know you're okay and we shouldn't abort."
-	
+
 	--return code and accompanying value:
 	-- 0, {}								-- not supposed to build, no error
 	-- 1, {{itemstack, source inventory pos}, ...} -- can build, took items from inventory
@@ -240,20 +240,20 @@ minetest.register_node("digtron:builder", {
 		local meta = minetest.get_meta(pos)
 		local facing = minetest.get_node(pos).param2
 		local buildpos = digtron.find_new_pos(test_pos, facing)
-		
+
 		if (buildpos[controlling_coordinate] + meta:get_int("offset")) % meta:get_int("period") ~= 0 then
 			--It's not the builder's turn to build right now.
 			return 0, {}
 		end
-		
+
 		local extrusion_count = 0
 		local extrusion_target = meta:get_int("extrusion")
 		if extrusion_target == nil or extrusion_target < 1 or extrusion_target > 100 then
 			extrusion_target = 1 -- failsafe
 		end
-		
+
 		local return_items = {}
-		
+
 		node_inventory_table.pos = pos
 		local inv = minetest.get_inventory(node_inventory_table)
 		local item_stack = inv:get_stack("main", 1)
@@ -261,20 +261,20 @@ minetest.register_node("digtron:builder", {
 		if item_stack:is_empty() then
 			return 3, {} -- error code for "this builder's item slot is unset"
 		end
-		
+
 		while extrusion_count < extrusion_target do
 			if not digtron.can_move_to(buildpos, protected_nodes, nodes_dug) then
 				--using "can_move_to" instead of "can_build_to" test case in case the builder is pointed "backward", and will thus
 				--be building into the space that it's currently in and will be vacating after moving, or in case the builder is aimed
 				--sideways and a fellow digtron node was ahead of it (will also be moving out of the way).
-				
+
 				--If the player has built his digtron stupid (eg has another digtron node in the place the builder wants to build) this
 				--assumption is wrong, but I can't hold the player's hand through *every* possible bad design decision. Worst case,
 				--the digtron will think its inventory can't handle the next build step and abort the build when it actually could have
 				--managed one more cycle. That's not a bad outcome for a digtron array that was built stupidly to begin with.
 				return 1, return_items
 			end
-			
+
 			local source_location = digtron.take_from_inventory(item_stack:get_name(), inventory_positions)
 			if source_location ~= nil then
 				table.insert(return_items, {item=item_stack, location=source_location})
@@ -284,34 +284,34 @@ minetest.register_node("digtron:builder", {
 			extrusion_count = extrusion_count + 1
 			buildpos = digtron.find_new_pos(buildpos, facing)
 		end
-		
+
 		return 1, return_items
 	end,
-	
+
 	execute_build = function(pos, player, inventory_positions, protected_nodes, nodes_dug, controlling_coordinate, controller_pos)
 		local meta = minetest.get_meta(pos)
 		local build_facing = tonumber(meta:get_int("build_facing"))
 		local facing = minetest.get_node(pos).param2
 		local buildpos = digtron.find_new_pos(pos, facing)
-		
+
 		if (buildpos[controlling_coordinate] + meta:get_int("offset")) % meta:get_int("period") ~= 0 then
 			return 0
 		end
-		
+
 		local extrusion_count = 0
 		local extrusion_target = meta:get_int("extrusion")
 		if extrusion_target == nil or extrusion_target < 1 or extrusion_target > 100 then
 			extrusion_target = 1 -- failsafe
 		end
 		local built_count = 0
-		
+
 		node_inventory_table.pos = pos
 		local inv = minetest.get_inventory(node_inventory_table)
 		local item_stack = inv:get_stack("main", 1)
 		if item_stack:is_empty() then
 			return built_count
 		end
-		
+
 		while extrusion_count < extrusion_target do
 			if not digtron.can_build_to(buildpos, protected_nodes, nodes_dug) then
 				return built_count
@@ -329,7 +329,7 @@ minetest.register_node("digtron:builder", {
 					return built_count
 				end
 			end
-		
+
 			local sourcepos = digtron.take_from_inventory(item_stack:get_name(), inventory_positions)
 			if sourcepos == nil then
 				-- item not in inventory! Need to sound the angry buzzer to let the player know, so return a negative number.
